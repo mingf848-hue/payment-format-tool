@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>补分判定格式转换</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f3;
+      --panel: #ffffff;
+      --ink: #1d2428;
+      --muted: #627079;
+      --line: #dbe0d6;
+      --accent: #176f68;
+      --accent-2: #9a5b22;
+      --soft: #e8f2ef;
+      --warn: #fff6dd;
+      --shadow: 0 18px 55px rgba(31, 43, 38, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button,
+    textarea,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 26px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.84);
+      backdrop-filter: blur(14px);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 750;
+      letter-spacing: 0;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 13px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button:hover {
+      filter: brightness(0.98);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+      gap: 18px;
+      padding: 18px;
+    }
+
+    .pane {
+      min-height: calc(100vh - 94px);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .pane-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcf8;
+    }
+
+    .pane-title strong {
+      font-size: 15px;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+      resize: none;
+      border: 0;
+      outline: none;
+      padding: 18px;
+      color: var(--ink);
+      background: transparent;
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    #output {
+      white-space: pre-wrap;
+    }
+
+    .result-wrap {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      min-height: 0;
+    }
+
+    .result {
+      overflow: auto;
+      padding: 18px;
+      line-height: 1.72;
+      font-size: 15px;
+    }
+
+    .result.empty {
+      color: var(--muted);
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px 16px;
+      border-top: 1px solid var(--line);
+      background: #fbfcf8;
+    }
+
+    .field {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+    }
+
+    .field span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .field b {
+      display: block;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .hint {
+      margin: 0;
+      padding: 12px 16px;
+      border-top: 1px solid #eadcb9;
+      background: var(--warn);
+      color: #6d4b19;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 860px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 16px;
+      }
+
+      main {
+        grid-template-columns: 1fr;
+        padding: 12px;
+      }
+
+      .pane {
+        min-height: 52vh;
+      }
+
+      .fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>补分判定格式转换</h1>
+      <div class="actions">
+        <button id="sampleBtn" type="button">填入示例</button>
+        <button id="clearBtn" type="button">清空</button>
+        <button id="copyBtn" class="primary" type="button">复制结果</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="pane">
+        <div class="pane-title">
+          <strong>原始聊天内容</strong>
+          <span class="status" id="inputStatus">实时转换</span>
+        </div>
+        <textarea id="source" spellcheck="false" placeholder="把 Telegram 聊天记录粘贴到这里"></textarea>
+      </section>
+
+      <section class="pane">
+        <div class="pane-title">
+          <strong>转换结果</strong>
+          <span class="status" id="parseStatus">等待输入</span>
+        </div>
+        <div class="result-wrap">
+          <div id="output" class="result empty">右侧会自动生成可复制格式。</div>
+          <div class="fields" id="fields"></div>
+          <p class="hint" id="hint">规则：站点会按中文站点名映射，例如“米兰”转为“ML”；备注取“日期 + 原因 + 订单号”；判定取包含“违规操作”的完整句。</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const siteMap = {
+      "米兰": "ML",
+      "皇冠": "HG",
+      "环球": "HQ",
+      "长江": "CJ",
+      "开元": "KY",
+      "乐鱼": "LY",
+      "威尼斯": "WNS",
+      "澳门": "AM"
+    };
+
+    const sampleText = `BWJS-KF-XR, [28/06/2026 23:10]
+HRK202606281016027964997  jump2018  米兰 重复支付暂时无法追回麻烦判定一下 谢谢
+
+Y_YY_wladyslaw, [28/06/2026 23:10]
+稍等-XW
+
+Y_YY_wladyslaw, [28/06/2026 23:11]
+HRK202606281016027964997  违规操作先进行警告用户 告知存提款规则，存款1000   后提供回单截图 运营补分1000  4倍流水`;
+
+    const source = document.getElementById("source");
+    const output = document.getElementById("output");
+    const fields = document.getElementById("fields");
+    const parseStatus = document.getElementById("parseStatus");
+    const copyBtn = document.getElementById("copyBtn");
+    const sampleBtn = document.getElementById("sampleBtn");
+    const clearBtn = document.getElementById("clearBtn");
+
+    function firstMatch(text, regex, fallback = "") {
+      const match = text.match(regex);
+      return match ? match[1].trim() : fallback;
+    }
+
+    function normalizeSpaces(text) {
+      return text.replace(/[ \t]+/g, " ").trim();
+    }
+
+    function parseDate(text) {
+      const match = text.match(/\[(\d{2})\/(\d{2})\/(\d{4})\s+\d{2}:\d{2}\]/);
+      return match ? `${match[2]}-${match[1]}` : "";
+    }
+
+    function parseSite(text) {
+      const siteName = Object.keys(siteMap).find((name) => text.includes(name));
+      return siteName ? siteMap[siteName] : "";
+    }
+
+    function parseReason(text, orderNo) {
+      if (!orderNo) return "";
+      const escaped = orderNo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+      const contextLine = lines.find((line) => new RegExp(`${escaped}\\s+\\S+\\s+\\S+\\s+`).test(line) && !line.includes("违规操作"));
+      if (!contextLine) return "";
+
+      const afterOrder = contextLine.replace(new RegExp(`^.*?${escaped}\\s+`), "");
+      const parts = afterOrder.split(/\s+/);
+      if (parts.length < 3) return "";
+      const reason = parts.slice(2).join("").replace(/麻烦判定一下|谢谢|麻烦|判定一下/g, "");
+      return reason.trim();
+    }
+
+    function parseJudgement(text, orderNo) {
+      const lines = text.split(/\n+/).map((line) => normalizeSpaces(line)).filter(Boolean);
+      let line = lines.find((item) => item.includes("违规操作")) || "";
+      if (orderNo) line = line.replace(orderNo, "").trim();
+      return line.replace(/存款\s*(\d+(?:\.\d+)?)/g, "存款 $1")
+        .replace(/运营补分\s*(\d+(?:\.\d+)?)/g, "运营补分  $1")
+        .replace(/(\d+(?:\.\d+)?)\s*倍流水/g, "$1倍流水")
+        .replace(/存提款规则/g, "存款规则")
+        .trim();
+    }
+
+    function parseText(text) {
+      const orderNo = firstMatch(text, /\b([A-Z]{2,}\d{12,})\b/);
+      const account = orderNo ? firstMatch(text, new RegExp(`${orderNo}\\s+([A-Za-z0-9_\\-]+)`)) : "";
+      const date = parseDate(text);
+      const site = parseSite(text);
+      const amount = firstMatch(text, /运营补分\s*(\d+(?:\.\d+)?)/) || firstMatch(text, /补分\s*(\d+(?:\.\d+)?)/);
+      const multiple = firstMatch(text, /(\d+(?:\.\d+)?)\s*倍流水/);
+      const reason = parseReason(text, orderNo);
+      const judgement = parseJudgement(text, orderNo);
+
+      return {
+        site,
+        account,
+        orderNo,
+        amount,
+        multiple,
+        remark: date && reason && orderNo ? `${date} ${reason}${orderNo}` : "",
+        judgement
+      };
+    }
+
+    function buildResult(data) {
+      return `站点： ${data.site}
+会员账号：${data.account}
+订单号：${data.orderNo}
+调整方式：系统调整
+上分金额： ${data.amount}
+备注：${data.remark}
+流水倍数：${data.multiple}
+
+判定：${data.judgement}`;
+    }
+
+    function renderFields(data) {
+      const rows = [
+        ["站点", data.site],
+        ["会员", data.account],
+        ["订单", data.orderNo],
+        ["上分", data.amount],
+        ["流水", data.multiple],
+        ["备注", data.remark],
+        ["判定", data.judgement]
+      ];
+
+      fields.innerHTML = rows.map(([label, value]) => `
+        <div class="field">
+          <span>${label}</span>
+          <b>${value || "未识别"}</b>
+        </div>
+      `).join("");
+    }
+
+    function convert() {
+      const text = source.value.trim();
+      if (!text) {
+        output.textContent = "右侧会自动生成可复制格式。";
+        output.classList.add("empty");
+        fields.innerHTML = "";
+        parseStatus.textContent = "等待输入";
+        return;
+      }
+
+      const data = parseText(text);
+      const missing = Object.entries(data)
+        .filter(([key, value]) => key !== "judgement" && !value)
+        .map(([key]) => key);
+
+      output.textContent = buildResult(data);
+      output.classList.remove("empty");
+      renderFields(data);
+      parseStatus.textContent = missing.length ? `有 ${missing.length} 项未识别` : "已完成";
+    }
+
+    source.addEventListener("input", convert);
+
+    sampleBtn.addEventListener("click", () => {
+      source.value = sampleText;
+      convert();
+      source.focus();
+    });
+
+    clearBtn.addEventListener("click", () => {
+      source.value = "";
+      convert();
+      source.focus();
+    });
+
+    copyBtn.addEventListener("click", async () => {
+      const text = output.classList.contains("empty") ? "" : output.textContent;
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+      const original = copyBtn.textContent;
+      copyBtn.textContent = "已复制";
+      setTimeout(() => {
+        copyBtn.textContent = original;
+      }, 1200);
+    });
+
+    source.value = sampleText;
+    convert();
+  </script>
+</body>
+</html>
