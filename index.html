@@ -311,41 +311,77 @@ HRK202606281016027964997  违规操作先进行警告用户 告知存提款规�
       return lines.find((line) => line.includes(orderNo) && !line.includes("违规操作")) || "";
     }
 
+    function escapeRegex(text) {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
     function cleanReason(reason) {
       return reason
-        .replace(/麻烦判定一下|帮忙判定下|帮忙判定一下|谢谢|麻烦|判定一下/g, "")
-        .replace(/\s*\d+(?:\.\d+)?[，,、。.\s]*$/g, "")
+        .replace(/麻烦判定一下|帮忙判定下|帮忙判定一下|谢谢|麻烦|判定一下|判定下|判定/g, "")
+        .replace(/请处理|处理一下|帮忙处理|麻烦处理|协助处理|看下|看一下|判定下/g, "")
+        .replace(/多存款/g, "多存")
+        .replace(/(^|\s)\d+(?:\.\d+)?[，,、。.]?(?=\s|$)/g, " ")
+        .replace(/\s+/g, " ")
         .trim();
+    }
+
+    function extractAccount(contextLine, orderNo) {
+      if (!contextLine) return "";
+
+      const siteNames = Object.keys(siteMap);
+      const tokens = contextLine.match(/[A-Za-z][A-Za-z0-9_-]{2,}|[A-Za-z0-9_-]*[A-Za-z][A-Za-z0-9_-]*/g) || [];
+      const rejected = new Set([
+        orderNo,
+        "HRK",
+        "ML",
+        "HG",
+        "HQ",
+        "CJ",
+        "KY",
+        "LY",
+        "WNS",
+        "AM"
+      ]);
+
+      const candidates = tokens.filter((token) => {
+        if (rejected.has(token)) return false;
+        if (siteNames.includes(token)) return false;
+        if (/^[A-Z]{2,}\d{12,}$/.test(token)) return false;
+        if (/^\d+(?:\.\d+)?$/.test(token)) return false;
+        return /[a-zA-Z]/.test(token) && /\d/.test(token);
+      });
+
+      return candidates[0] || "";
+    }
+
+    function extractReason(contextLine, orderNo, account) {
+      if (!contextLine) return "";
+      let reason = contextLine;
+
+      if (orderNo) reason = reason.replace(new RegExp(escapeRegex(orderNo), "g"), " ");
+      if (account) reason = reason.replace(new RegExp(`(^|\\s)${escapeRegex(account)}(?=\\s|$)`, "g"), " ");
+      Object.keys(siteMap).forEach((name) => {
+        reason = reason.replace(new RegExp(escapeRegex(name), "g"), " ");
+      });
+
+      reason = reason
+        .replace(/[A-Z]{2,}\d{12,}/g, " ")
+        .replace(/\b[A-Za-z][A-Za-z0-9_-]*\b/g, " ")
+        .replace(/\s+/g, " ");
+
+      return cleanReason(reason);
     }
 
     function parseContext(text, orderNo) {
       const contextLine = findContextLine(text, orderNo);
       if (!contextLine) return { account: "", site: "", reason: "" };
 
-      const siteNames = Object.keys(siteMap).join("|");
-      const accountPattern = "([A-Za-z0-9_\\-]+)";
-      const orderPattern = orderNo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const orderFirst = new RegExp(`${orderPattern}\\s+${accountPattern}\\s+(${siteNames})\\s+(.+)`);
-      const siteFirst = new RegExp(`(${siteNames})\\s+${accountPattern}\\s+${orderPattern}\\s+(.+)`);
-      const orderFirstMatch = contextLine.match(orderFirst);
-      if (orderFirstMatch) {
-        return {
-          account: orderFirstMatch[1],
-          site: siteMap[orderFirstMatch[2]],
-          reason: cleanReason(orderFirstMatch[3])
-        };
-      }
-
-      const siteFirstMatch = contextLine.match(siteFirst);
-      if (siteFirstMatch) {
-        return {
-          site: siteMap[siteFirstMatch[1]],
-          account: siteFirstMatch[2],
-          reason: cleanReason(siteFirstMatch[3])
-        };
-      }
-
-      return { account: "", site: "", reason: "" };
+      const account = extractAccount(contextLine, orderNo);
+      return {
+        account,
+        site: parseSite(contextLine),
+        reason: extractReason(contextLine, orderNo, account)
+      };
     }
 
     function parseJudgement(text, orderNo) {
